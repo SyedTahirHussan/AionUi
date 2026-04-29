@@ -8,13 +8,12 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { extensions as extensionsIpc } from '@/common/adapter/ipcBridge';
 import WebviewHost from '@/renderer/components/media/WebviewHost';
-import { resolveExtensionAssetUrl } from '@/renderer/utils/platform';
 
 const isExternalSettingsUrl = (url?: string): boolean => /^https?:\/\//i.test(url || '');
 
 interface ExtensionSettingsTabContentProps {
-  /** aion-asset:// local page URL or external https:// URL */
-  entryUrl: string;
+  /** Backend-served local page URL or external https:// URL */
+  url: string;
   /** Tab ID for keying */
   tabId: string;
   /** Source extension name */
@@ -24,22 +23,17 @@ interface ExtensionSettingsTabContentProps {
 /**
  * Renders an extension-contributed settings tab page.
  * - External URLs (https://) → WebviewHost with link interception, navigation, partition cache.
- * - Local URLs (aion-asset://) → sandboxed iframe with postMessage bridge.
+ * - Backend-served local URLs → sandboxed iframe with postMessage bridge.
  */
-const ExtensionSettingsTabContent: React.FC<ExtensionSettingsTabContentProps> = ({
-  entryUrl,
-  tabId,
-  extensionName,
-}) => {
+const ExtensionSettingsTabContent: React.FC<ExtensionSettingsTabContentProps> = ({ url, tabId, extensionName }) => {
   const { i18n } = useTranslation();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [loading, setLoading] = useState(true);
-  const resolvedEntryUrl = resolveExtensionAssetUrl(entryUrl) || entryUrl;
-  const isExternalTab = isExternalSettingsUrl(resolvedEntryUrl);
+  const isExternalTab = isExternalSettingsUrl(url);
 
   useEffect(() => {
     setLoading(true);
-  }, [resolvedEntryUrl]);
+  }, [url]);
 
   const postLocaleInit = useCallback(async () => {
     if (isExternalTab) return;
@@ -49,8 +43,7 @@ const ExtensionSettingsTabContent: React.FC<ExtensionSettingsTabContentProps> = 
 
     try {
       const mergedI18n = await extensionsIpc.getExtI18nForLocale.invoke({ locale: i18n.language });
-      const namespace = `ext.${extensionName}`;
-      const translations = (mergedI18n?.[namespace] as Record<string, unknown> | undefined) ?? {};
+      const translations = (mergedI18n?.[extensionName] as Record<string, unknown> | undefined) ?? {};
 
       frameWindow.postMessage(
         {
@@ -66,7 +59,7 @@ const ExtensionSettingsTabContent: React.FC<ExtensionSettingsTabContentProps> = 
     }
   }, [extensionName, i18n.language, isExternalTab]);
 
-  // postMessage bridge for local iframe tabs (aion-asset://)
+  // postMessage bridge for backend-served local iframe tabs
   useEffect(() => {
     if (isExternalTab) return;
 
@@ -114,7 +107,7 @@ const ExtensionSettingsTabContent: React.FC<ExtensionSettingsTabContentProps> = 
       {isExternalTab ? (
         <WebviewHost
           key={tabId}
-          url={resolvedEntryUrl}
+          url={url}
           id={tabId}
           partition={`persist:ext-settings-${tabId}`}
           style={{ minHeight: '200px' }}
@@ -129,7 +122,7 @@ const ExtensionSettingsTabContent: React.FC<ExtensionSettingsTabContentProps> = 
           <iframe
             ref={iframeRef}
             key={tabId}
-            src={resolvedEntryUrl}
+            src={url}
             onLoad={() => setLoading(false)}
             sandbox='allow-scripts allow-same-origin'
             className='w-full h-full border-none'

@@ -11,7 +11,6 @@ import { extensions as extensionsIpc, type IExtensionSettingsTab } from '@/commo
 import { useExtI18n } from '@/renderer/hooks/system/useExtI18n';
 import { useExtensionSettingsTabs } from '@/renderer/hooks/system/useExtensionSettingsTabs';
 import WebviewHost from '@/renderer/components/media/WebviewHost';
-import { resolveExtensionAssetUrl } from '@/renderer/utils/platform';
 import SettingsPageWrapper from './components/SettingsPageWrapper';
 
 const isExternalSettingsUrl = (url?: string): boolean => /^https?:\/\//i.test(url || '');
@@ -44,12 +43,12 @@ const ExtensionSettingsPage: React.FC = () => {
     return { tab: null, error: `Settings tab "${tabId}" not found` };
   }, [tabId, extensionTabs]);
 
-  const resolvedEntryUrl = resolveExtensionAssetUrl(tab?.entryUrl) || tab?.entryUrl;
-  const isExternalTab = isExternalSettingsUrl(resolvedEntryUrl);
+  const resolvedUrl = tab?.url;
+  const isExternalTab = isExternalSettingsUrl(resolvedUrl);
 
   useEffect(() => {
     setLoading(true);
-  }, [tab?.id, resolvedEntryUrl]);
+  }, [tab?.id, resolvedUrl]);
 
   const postLocaleInit = useCallback(async () => {
     if (!tab || isExternalTab) return;
@@ -59,14 +58,13 @@ const ExtensionSettingsPage: React.FC = () => {
 
     try {
       const mergedI18n = await extensionsIpc.getExtI18nForLocale.invoke({ locale: i18n.language });
-      const namespace = `ext.${tab._extensionName}`;
-      const translations = (mergedI18n?.[namespace] as Record<string, unknown> | undefined) ?? {};
+      const translations = (mergedI18n?.[tab.extensionName] as Record<string, unknown> | undefined) ?? {};
 
       frameWindow.postMessage(
         {
           type: 'aion:init',
           locale: i18n.language,
-          extensionName: tab._extensionName,
+          extensionName: tab.extensionName,
           translations,
         },
         '*'
@@ -131,7 +129,7 @@ const ExtensionSettingsPage: React.FC = () => {
           (isExternalTab ? (
             <WebviewHost
               key={tab.id}
-              url={resolvedEntryUrl || ''}
+              url={resolvedUrl || ''}
               id={tab.id}
               partition={`persist:ext-settings-${tab.id}`}
               style={{
@@ -149,7 +147,7 @@ const ExtensionSettingsPage: React.FC = () => {
               <iframe
                 ref={iframeRef}
                 key={tab.id}
-                src={resolvedEntryUrl}
+                src={resolvedUrl}
                 onLoad={() => setLoading(false)}
                 sandbox='allow-scripts allow-same-origin'
                 className='w-full border-none'

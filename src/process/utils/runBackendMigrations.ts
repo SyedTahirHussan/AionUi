@@ -22,23 +22,22 @@ const LEGACY_BACKEND_CLIENT_PREFERENCE_KEYS = [
 ] as const;
 
 async function cleanupLegacyClientPreferences(): Promise<void> {
-  const payload = Object.fromEntries(LEGACY_BACKEND_CLIENT_PREFERENCE_KEYS.map((key) => [key, null]));
+  const payloadEntries = LEGACY_BACKEND_CLIENT_PREFERENCE_KEYS.map((key): [string, null] => [key, null]);
+  const payload = Object.fromEntries(payloadEntries);
   await httpRequest<void>('PUT', '/api/settings/client', payload);
 }
 
 const CLEANUP_STEPS: Array<{
   name: string;
   run: () => Promise<void>;
-}> = [
-  { name: 'cleanupLegacyClientPreferences', run: async () => cleanupLegacyClientPreferences() },
-];
+}> = [{ name: 'cleanupLegacyClientPreferences', run: async () => cleanupLegacyClientPreferences() }];
 
 const MIGRATION_STEPS: Array<{
   name: string;
   run: (configFile: ConfigFile) => Promise<MigrationStepResult>;
 }> = [
-  { name: 'migrateConfigStorage', run: async () => ((await migrateConfigStorage()), true) },
-  { name: 'migrateProviders', run: async () => ((await migrateProviders()), true) },
+  { name: 'migrateConfigStorage', run: async () => (await migrateConfigStorage(), true) },
+  { name: 'migrateProviders', run: async () => (await migrateProviders(), true) },
   { name: 'migrateAssistantsToBackend', run: async (configFile) => migrateAssistantsToBackend(configFile) },
 ];
 

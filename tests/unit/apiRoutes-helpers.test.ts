@@ -26,15 +26,6 @@ vi.mock('@process/webserver/auth/middleware/TokenMiddleware', () => ({
   },
 }));
 
-vi.mock('@process/extensions', () => ({
-  ExtensionRegistry: {
-    getInstance: vi.fn().mockReturnValue({
-      getWebuiContributions: vi.fn().mockReturnValue([]),
-      getLoadedExtensions: vi.fn().mockReturnValue([]),
-    }),
-  },
-}));
-
 vi.mock('@process/bridge/services/SpeechToTextService', () => ({
   SpeechToTextService: {
     transcribe: vi.fn().mockResolvedValue({ text: 'transcribed text' }),
@@ -88,28 +79,26 @@ describe('apiRoutes helper functions', () => {
     });
   });
 
-  describe('normalizeMountPath', () => {
-    it('is used in extension route registration', () => {
+  describe('registerApiRoutes', () => {
+    it('registers route handlers without extension webui hooks', () => {
       const app = {
         use: vi.fn(),
         post: vi.fn(),
         get: vi.fn(),
       } as unknown as Express;
 
-      // This triggers the registerApiRoutes which uses normalizeMountPath
       expect(() => registerApiRoutes(app)).not.toThrow();
     });
   });
 
-  describe('isPathInsideRoot', () => {
-    it('prevents path traversal in extension routes', () => {
+  describe('route setup', () => {
+    it('keeps helper-only route registration side-effect free', () => {
       const app = {
         use: vi.fn(),
         post: vi.fn(),
         get: vi.fn(),
       } as unknown as Express;
 
-      // This triggers code paths that use isPathInsideRoot
       expect(() => registerApiRoutes(app)).not.toThrow();
     });
   });
@@ -152,7 +141,7 @@ describe('apiRoutes - sanitizeFileName edge cases', () => {
   });
 });
 
-describe('apiRoutes - normalizeMountPath behavior', () => {
+describe('apiRoutes - path normalization behavior', () => {
   it('normalizes paths correctly', () => {
     // Test normalizeMountPath logic: empty string becomes '/'
     const emptyInput = '';

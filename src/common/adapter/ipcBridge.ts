@@ -1350,14 +1350,11 @@ interface IBridgeResponse<D = {}> {
 
 export interface IExtensionInfo {
   name: string;
-  displayName: string;
+  display_name: string;
   version: string;
   description?: string;
   source: string;
-  directory: string;
   enabled: boolean;
-  riskLevel: 'safe' | 'moderate' | 'dangerous';
-  hasLifecycle: boolean;
 }
 
 export interface IExtensionPermissionSummary {
@@ -1369,12 +1366,12 @@ export interface IExtensionPermissionSummary {
 
 export interface IExtensionSettingsTab {
   id: string;
-  name: string;
+  label: string;
   icon?: string;
-  entryUrl: string;
-  position?: { anchor: string; placement: 'before' | 'after' };
+  url: string;
+  position?: { relativeTo: string; placement: 'before' | 'after' };
   order: number;
-  _extensionName: string;
+  extensionName: string;
 }
 
 export interface IExtensionWebuiContribution {
@@ -1502,9 +1499,8 @@ function toChannelSession(raw: RawSession): IChannelSession {
 }
 
 export const channel = {
-  getPluginStatus: withResponseMap(
-    httpGet<RawPluginStatus[], void>('/api/channel/plugins'),
-    (raw) => raw.map(toPluginStatus)
+  getPluginStatus: withResponseMap(httpGet<RawPluginStatus[], void>('/api/channel/plugins'), (raw) =>
+    raw.map(toPluginStatus)
   ),
   enablePlugin: httpPost<void, { plugin_id: string; config: Record<string, unknown> }>('/api/channel/plugins/enable'),
   disablePlugin: httpPost<void, { plugin_id: string }>('/api/channel/plugins/disable'),
@@ -1512,25 +1508,19 @@ export const channel = {
     { success: boolean; bot_username?: string; error?: string },
     { plugin_id: string; token: string; extra_config?: { app_id?: string; app_secret?: string } }
   >('/api/channel/plugins/test'),
-  getPendingPairings: withResponseMap(
-    httpGet<RawPairing[], void>('/api/channel/pairings'),
-    (raw) => raw.map(toPairing)
+  getPendingPairings: withResponseMap(httpGet<RawPairing[], void>('/api/channel/pairings'), (raw) =>
+    raw.map(toPairing)
   ),
   approvePairing: httpPost<void, { code: string }>('/api/channel/pairings/approve'),
   rejectPairing: httpPost<void, { code: string }>('/api/channel/pairings/reject'),
-  getAuthorizedUsers: withResponseMap(
-    httpGet<RawUser[], void>('/api/channel/users'),
-    (raw) => raw.map(toChannelUser)
-  ),
+  getAuthorizedUsers: withResponseMap(httpGet<RawUser[], void>('/api/channel/users'), (raw) => raw.map(toChannelUser)),
   revokeUser: httpPost<void, { user_id: string }>('/api/channel/users/revoke'),
-  getActiveSessions: withResponseMap(
-    httpGet<RawSession[], void>('/api/channel/sessions'),
-    (raw) => raw.map(toChannelSession)
+  getActiveSessions: withResponseMap(httpGet<RawSession[], void>('/api/channel/sessions'), (raw) =>
+    raw.map(toChannelSession)
   ),
   syncChannelSettings: httpPost<void, { platform: string }>('/api/channel/settings/sync'),
-  pairingRequested: wsMappedEmitter<IChannelPairingRequest>(
-    'channel.pairing-requested',
-    (raw) => toPairing(raw as RawPairing)
+  pairingRequested: wsMappedEmitter<IChannelPairingRequest>('channel.pairing-requested', (raw) =>
+    toPairing(raw as RawPairing)
   ),
   pluginStatusChanged: wsMappedEmitter<{ plugin_id: string; status: IChannelPluginStatus }>(
     'channel.plugin-status-changed',
@@ -1542,10 +1532,7 @@ export const channel = {
       };
     }
   ),
-  userAuthorized: wsMappedEmitter<IChannelUser>(
-    'channel.user-authorized',
-    (raw) => toChannelUser(raw as RawUser)
-  ),
+  userAuthorized: wsMappedEmitter<IChannelUser>('channel.user-authorized', (raw) => toChannelUser(raw as RawUser)),
 };
 
 // ---------------------------------------------------------------------------

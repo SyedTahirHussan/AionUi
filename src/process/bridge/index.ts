@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { agentRegistry } from '@process/agent/AgentRegistry';
 import type { TeamSessionService } from '@process/team/TeamSessionService';
 import { initApplicationBridge } from './applicationBridge';
 import { initAuthBridge } from './authBridge';
@@ -50,14 +49,6 @@ export function initAllBridges(deps: BridgeDependencies): void {
   initWorkspaceSnapshotBridge();
   initRemoteAgentBridge();
   initTeamBridge(deps.teamSessionService);
-}
-
-export async function initializeAcpDetector(): Promise<void> {
-  try {
-    await agentRegistry.initialize();
-  } catch (error) {
-    console.error('[ACP] Failed to initialize detector:', error);
-  }
 }
 
 export {

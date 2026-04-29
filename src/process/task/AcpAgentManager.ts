@@ -20,7 +20,6 @@ import type {
   AcpSessionConfigOption,
 } from '@/common/types/acpTypes';
 import { ACP_BACKENDS_ALL } from '@/common/types/acpTypes';
-import { ExtensionRegistry } from '@process/extensions';
 import { getDatabase } from '@process/services/database';
 import { ProcessConfig } from '@process/utils/initStorage';
 import { addMessage, addOrUpdateMessage, nextTickToLocalFinish } from '@process/utils/message';
@@ -391,30 +390,6 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
     let customAgentConfig: CustomAgentLaunchConfig | undefined = customAgents?.find(
       (agent) => agent.id === data.custom_agent_id
     );
-
-    // Fallback: extension adapter (custom_agent_id format: ext:{extensionName}:{adapterId})
-    if (!customAgentConfig && data.custom_agent_id!.startsWith('ext:')) {
-      const [, extensionName, ...idParts] = data.custom_agent_id!.split(':');
-      const adapterId = idParts.join(':');
-      const adapter = ExtensionRegistry.getInstance()
-        .getAcpAdapters()
-        .find((item) => {
-          const record = item as Record<string, unknown>;
-          return record._extensionName === extensionName && record.id === adapterId;
-        }) as Record<string, unknown> | undefined;
-
-      if (adapter) {
-        customAgentConfig = {
-          id: data.custom_agent_id,
-          name: typeof adapter.name === 'string' ? adapter.name : data.custom_agent_id,
-          defaultCliPath: typeof adapter.defaultCliPath === 'string' ? adapter.defaultCliPath : undefined,
-          acpArgs: Array.isArray(adapter.acpArgs)
-            ? adapter.acpArgs.filter((v): v is string => typeof v === 'string')
-            : undefined,
-          env: typeof adapter.env === 'object' && adapter.env ? (adapter.env as Record<string, string>) : undefined,
-        };
-      }
-    }
 
     if (!customAgentConfig?.defaultCliPath) {
       return { cli_path: data.cli_path };
