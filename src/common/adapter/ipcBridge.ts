@@ -72,8 +72,8 @@ import {
 // ---------------------------------------------------------------------------
 
 export const shell = {
-  openFile: httpPost<void, string>('/api/shell/open-file', (path) => ({ path })),
-  showItemInFolder: httpPost<void, string>('/api/shell/show-item-in-folder', (path) => ({ path })),
+  openFile: httpPost<void, string>('/api/shell/open-file', (file_path) => ({ file_path })),
+  showItemInFolder: httpPost<void, string>('/api/shell/show-item-in-folder', (file_path) => ({ file_path })),
   openExternal: httpPost<void, string>('/api/shell/open-external', (url) => ({ url })),
   checkToolInstalled: httpPost<boolean, { tool: string }>('/api/shell/check-tool-installed'),
   openFolderWith: httpPost<void, { folder_path: string; tool: 'vscode' | 'terminal' | 'explorer' }>(
@@ -408,10 +408,10 @@ export const dialog = {
 export const fs = {
   getFilesByDir: httpPost<Array<IDirOrFile>, { dir: string; root: string }>('/api/fs/dir'),
   listWorkspaceFiles: httpPost<Array<IWorkspaceFlatFile>, { root: string }>('/api/fs/list'),
-  getImageBase64: httpPost<string, { path: string }>('/api/fs/image-base64'),
+  getImageBase64: httpPost<string | null, { path: string; workspace?: string }>('/api/fs/image-base64'),
   fetchRemoteImage: httpPost<string, { url: string }>('/api/fs/fetch-remote-image'),
-  readFile: httpPost<string, { path: string }>('/api/fs/read'),
-  readFileBuffer: httpPost<ArrayBuffer, { path: string }>('/api/fs/read-buffer'),
+  readFile: httpPost<string | null, { path: string; workspace?: string }>('/api/fs/read'),
+  readFileBuffer: httpPost<string | null, { path: string; workspace?: string }>('/api/fs/read-buffer'),
   createTempFile: httpPost<string, { file_name: string }>('/api/fs/temp'),
   createUploadFile: httpPost<string, { file_name: string; conversation_id?: string }>('/api/fs/temp'),
   writeFile: httpPost<boolean, { path: string; data: Uint8Array | string }>('/api/fs/write'),
@@ -428,7 +428,7 @@ export const fs = {
     }
   >('/api/fs/zip'),
   cancelZip: httpPost<boolean, { request_id: string }>('/api/fs/zip/cancel'),
-  getFileMetadata: httpPost<IFileMetadata, { path: string }>('/api/fs/metadata'),
+  getFileMetadata: httpPost<IFileMetadata, { path: string; workspace?: string }>('/api/fs/metadata'),
   copyFilesToWorkspace: httpPost<
     { copied_files: string[]; failed_files?: Array<{ path: string; error: string }> },
     { file_paths: string[]; workspace: string; source_root?: string }
@@ -516,9 +516,11 @@ export const fileWatch = {
   fileChanged: wsEmitter<{ file_path: string; event_type: string }>('fileWatch.fileChanged'),
 };
 
-// Workspace Office file scan
+// Workspace Office file watch
 export const workspaceOfficeWatch = {
-  scan: httpPost<string[], { workspace: string }>('/api/fs/office-watch/start'),
+  start: httpPost<void, { workspace: string }>('/api/fs/office-watch/start'),
+  stop: httpPost<void, { workspace: string }>('/api/fs/office-watch/stop'),
+  fileAdded: wsEmitter<{ file_path: string; workspace: string }>('workspaceOfficeWatch.fileAdded'),
 };
 
 // File streaming updates (real-time content push when agent writes)
@@ -633,22 +635,7 @@ export const mode = {
 export const acpConversation = {
   sendMessage: conversation.sendMessage,
   responseStream: conversation.responseStream,
-  getAvailableAgents: httpGet<
-    Array<{
-      id: string;
-      name: string;
-      agent_type: string;
-      backend?: string;
-      available: boolean;
-      source: 'internal' | 'builtin' | 'extension' | 'custom';
-      cli_path?: string;
-      custom_agent_id?: string;
-      is_preset?: boolean;
-      is_extension?: boolean;
-      supported_transports?: string[];
-    }>,
-    void
-  >('/api/agents'),
+  getAvailableAgents: httpGet<AgentMetadata[], void>('/api/agents'),
   refreshCustomAgents: httpPost<void, void>('/api/agents/refresh'),
   testCustomAgent: httpPost<
     { step: 'cli_check' | 'acp_initialize'; error?: string },
@@ -656,7 +643,7 @@ export const acpConversation = {
   >('/api/agents/test'),
   detectCliPath: httpPost<{ path?: string }, { backend: string }>('/api/acp/detect-cli'),
   checkEnv: httpGet<{ env: Record<string, string> }, void>('/api/acp/env'),
-  checkAgentHealth: httpPost<{ available: boolean; latency?: number; error?: string }, { backend: AgentBackend }>(
+  checkAgentHealth: httpPost<{ available: boolean; latency?: number; error?: string }, { backend: string }>(
     '/api/acp/health-check'
   ),
   setMode: httpPut<void, { conversation_id: string; mode: string }>(
@@ -882,19 +869,23 @@ export const document = {
 // ---------------------------------------------------------------------------
 
 export const pptPreview = {
-  start: httpPost<{ url: string }, { file_path: string }>('/api/ppt-preview/start'),
+  start: httpPost<{ url: string; error?: string }, { file_path: string; workspace?: string }>('/api/ppt-preview/start'),
   stop: httpPost<void, { file_path: string }>('/api/ppt-preview/stop'),
   status: wsEmitter<{ state: 'starting' | 'installing' | 'ready' | 'error'; message?: string }>('ppt-preview.status'),
 };
 
 export const wordPreview = {
-  start: httpPost<{ url: string }, { file_path: string }>('/api/word-preview/start'),
+  start: httpPost<{ url: string; error?: string }, { file_path: string; workspace?: string }>(
+    '/api/word-preview/start'
+  ),
   stop: httpPost<void, { file_path: string }>('/api/word-preview/stop'),
   status: wsEmitter<{ state: 'starting' | 'installing' | 'ready' | 'error'; message?: string }>('word-preview.status'),
 };
 
 export const excelPreview = {
-  start: httpPost<{ url: string }, { file_path: string }>('/api/excel-preview/start'),
+  start: httpPost<{ url: string; error?: string }, { file_path: string; workspace?: string }>(
+    '/api/excel-preview/start'
+  ),
   stop: httpPost<void, { file_path: string }>('/api/excel-preview/stop'),
   status: wsEmitter<{ state: 'starting' | 'installing' | 'ready' | 'error'; message?: string }>('excel-preview.status'),
 };
@@ -1540,6 +1531,7 @@ export const channel = {
 // ---------------------------------------------------------------------------
 
 import type { IHubAgentItem, HubExtensionStatus } from '@/common/types/hub';
+import type { AgentMetadata } from '@/renderer/utils/model/agentTypes';
 
 export const hub = {
   getExtensionList: httpGet<IHubAgentItem[], void>('/api/hub/extensions'),
